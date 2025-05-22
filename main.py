@@ -12,6 +12,8 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
+GREEN = (0, 100, 0)  # Für Wald
+GRAY = (100, 100, 100)  # Für Ruinen
 
 # Agenten-Klasse
 class Agent:
@@ -20,17 +22,19 @@ class Agent:
         self.y = y
         self.color = color
         self.name = name
-        self.speed = 5
+        self.speed = 2  # Reduzierte Geschwindigkeit
         self.energy = 100
 
-    def draw(self, screen):
-        # Einfacher Stickman: Kopf und Körper
-        pygame.draw.circle(screen, self.color, (self.x, self.y), 10)  # Kopf
-        pygame.draw.line(screen, self.color, (self.x, self.y + 10), (self.x, self.y + 30), 2)  # Körper
+    def draw(self, screen, camera_x, camera_y):
+        # Stickman relativ zur Kamera zeichnen
+        screen_x = self.x - camera_x
+        screen_y = self.y - camera_y
+        pygame.draw.circle(screen, self.color, (screen_x, screen_y), 10)  # Kopf
+        pygame.draw.line(screen, self.color, (screen_x, screen_y + 10), (screen_x, screen_y + 30), 2)  # Körper
         # Energie-Anzeige
         font = pygame.font.SysFont('arial', 15)
         text = font.render(f"{self.name}: {self.energy}", True, WHITE)
-        screen.blit(text, (self.x - 20, self.y - 30))
+        screen.blit(text, (screen_x - 20, screen_y - 30))
 
     def move(self, map_width, map_height):
         # Zufällige Bewegung (später Reinforcement Learning)
@@ -44,6 +48,12 @@ map_width = 2000
 map_height = 2000
 camera_x = 0
 camera_y = 0
+
+# Regionen (Wald und Ruinen)
+regions = [
+    {"type": "forest", "rect": pygame.Rect(0, 0, 1000, 1000), "color": GREEN},  # Wald im Nordwesten
+    {"type": "ruins", "rect": pygame.Rect(1000, 1000, 1000, 1000), "color": GRAY}  # Ruinen im Südosten
+]
 
 # Agenten erstellen
 simple_d = Agent(400, 300, BLUE, "Simple D")
@@ -61,18 +71,32 @@ while running:
     irsan_ai.move(map_width, map_height)
 
     # Kamera zentriert auf Simple D
-    camera_x = simple_d.x - 400  # Bildschirmmitte
+    camera_x = simple_d.x - 400
     camera_y = simple_d.y - 300
     camera_x = max(0, min(camera_x, map_width - 800))
     camera_y = max(0, min(camera_y, map_height - 600))
 
     # Zeichnen
     screen.fill(BLACK)  # Hintergrund
-    # Map zeichnen (später Sektoren wie Wälder hinzufügen)
-    pygame.draw.rect(screen, (50, 50, 50), (0, 0, map_width, map_height))
+    # Regionen zeichnen
+    for region in regions:
+        region_rect = region["rect"]
+        screen_rect = pygame.Rect(region_rect.x - camera_x, region_rect.y - camera_y, region_rect.width, region_rect.height)
+        pygame.draw.rect(screen, region["color"], screen_rect)
     # Agenten zeichnen
-    simple_d.draw(screen)
-    irsan_ai.draw(screen)
+    simple_d.draw(screen, camera_x, camera_y)
+    irsan_ai.draw(screen, camera_x, camera_y)
+
+    # Mini-Map (rechte untere Ecke)
+    mini_map = pygame.Surface((100, 100))
+    mini_map.fill((50, 50, 50))  # Hintergrund
+    for region in regions:
+        scaled_rect = pygame.Rect(region["rect"].x / 20, region["rect"].y / 20, region["rect"].width / 20, region["rect"].height / 20)
+        pygame.draw.rect(mini_map, region["color"], scaled_rect)
+    # Agenten auf Mini-Map
+    pygame.draw.circle(mini_map, BLUE, (simple_d.x / 20, simple_d.y / 20), 2)
+    pygame.draw.circle(mini_map, RED, (irsan_ai.x / 20, irsan_ai.y / 20), 2)
+    screen.blit(mini_map, (700, 500))
 
     pygame.display.flip()
     clock.tick(60)
